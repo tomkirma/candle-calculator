@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>מחשבון נרות – גרסה פשוטה</title>
+<style>
+  :root{ --bg:#0f1115; --card:#171a20; --ink:#e9ecf1; --muted:#9aa3af; --accent:#a78bfa; --radius:14px; }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:#0b0d11; color:var(--ink); padding:20px}
+  .wrap{max-width:720px; margin:0 auto; display:grid; gap:14px}
+  h1{margin:0 0 6px; font-size:24px}
+  .card{background:var(--card); border:1px solid #232733; border-radius:var(--radius); padding:16px}
+  label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+  input{width:100%; padding:12px 14px; border-radius:10px; border:1px solid #2a2f3b; background:#0f131a; color:var(--ink); font-size:16px}
+  .grid{display:grid; gap:12px}
+  @media (min-width:600px){ .grid-3{grid-template-columns:repeat(3,1fr)} }
+  .btn{padding:12px 16px; background:var(--accent); color:#0b0d11; border:none; border-radius:10px; font-weight:700; cursor:pointer}
+  .hint{font-size:12px; color:var(--muted)}
+  table{width:100%; border-collapse:collapse; margin-top:10px; overflow:hidden; border-radius:12px}
+  th,td{padding:10px; text-align:center; border-bottom:1px solid #252a36}
+  th{background:#10141b; color:#cfd5df}
+  tfoot td{font-weight:700}
+  .kpi{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px}
+  .pill{background:#0e1218; border:1px solid #262b36; border-radius:12px; padding:12px; text-align:center}
+  .pill b{display:block; margin-top:6px; font-size:18px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>מחשבון נרות – גרסה פשוטה</h1>
+    <div class="card grid grid-3">
+      <div>
+        <label for="vessels">מספר כלים (יח׳)</label>
+        <input id="vessels" type="number" min="1" step="1" value="6">
+      </div>
+      <div>
+        <label for="volume">נפח כלי (מ״ל) — מילוי מלא</label>
+        <input id="volume" type="number" min="10" step="1" value="220">
+      </div>
+      <div>
+        <label for="load">אחוז שמן ריח (% מהשעווה)</label>
+        <input id="load" type="number" min="0" max="20" step="0.5" value="8">
+      </div>
+      <button class="btn" id="calcBtn">חשב</button>
+      <div class="hint">הנחות חישוב: צפיפות שעווה קבועה 0.90 גר׳/מ״ל, מילוי 100%. אחוז השמן מחושב ביחס למשקל השעווה.</div>
+    </div>
+
+    <div class="card">
+      <div class="kpi">
+        <div class="pill">שעווה לכל נר (גר׳)<b id="kWaxPer">–</b></div>
+        <div class="pill">שמן ריח לכל נר (גר׳)<b id="kFragPer">–</b></div>
+        <div class="pill">סה״כ לבאטצ׳ (גר׳)<b id="kBatch">–</b></div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>#</th><th>שעווה לנר (גר׳)</th><th>שמן ריח לנר (גר׳)</th><th>סה״כ לנר (גר׳)</th></tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="4">אין נתונים – לחץ/י על “חשב”.</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>סה״כ</td><td id="tWax">–</td><td id="tFrag">–</td><td id="tAll">–</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const num=v=>isFinite(+v)?+v:0;
+  const DENS = 0.90; // גר׳/מ״ל
+  const round=(x)=>Math.round(x); // עיגול לגרם
+
+  function calc(){
+    const vessels = Math.max(1, Math.floor(num($('#vessels').value)));
+    const volumeMl = Math.max(1, num($('#volume').value));
+    const loadPct = Math.max(0, num($('#load').value)); // % מהשעווה
+
+    // תערובת לכל נר (מ״ל) -> בגרמים בקירוב לפי צפיפות
+    const mixGPer = volumeMl * DENS;
+
+    // אם אחוז הריח הוא ביחס לשעווה: mix = W + W*load -> W = mix/(1+load)
+    const waxPer = mixGPer / (1 + loadPct/100);
+    const fragPer = waxPer * (loadPct/100);
+    const totalPer = waxPer + fragPer;
+
+    const waxPerR = round(waxPer);
+    const fragPerR = round(fragPer);
+    const totalPerR = round(totalPer);
+
+    const tWax = waxPerR * vessels;
+    const tFrag = fragPerR * vessels;
+    const tAll = totalPerR * vessels;
+
+    $('#kWaxPer').textContent = waxPerR.toLocaleString('he-IL');
+    $('#kFragPer').textContent = fragPerR.toLocaleString('he-IL');
+    $('#kBatch').textContent = tAll.toLocaleString('he-IL');
+
+    const body = $('#tbody');
+    body.innerHTML = '';
+    for(let i=1;i<=vessels;i++){
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+i+'</td><td>'+waxPerR.toLocaleString('he-IL')+'</td><td>'+fragPerR.toLocaleString('he-IL')+'</td><td>'+totalPerR.toLocaleString('he-IL')+'</td>';
+      body.appendChild(tr);
+    }
+    $('#tWax').textContent = tWax.toLocaleString('he-IL');
+    $('#tFrag').textContent = tFrag.toLocaleString('he-IL');
+    $('#tAll').textContent = tAll.toLocaleString('he-IL');
+  }
+
+  $('#calcBtn').addEventListener('click', calc);
+  // חישוב ראשוני
+  calc();
+})();
+</script>
+</body>
+</html>
